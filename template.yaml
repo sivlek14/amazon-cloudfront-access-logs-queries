@@ -10,42 +10,43 @@ Description: >
     Athena and AWS Glue).
 
 Parameters:
-  ResourcePrefix: 
+  NewKeyPrefix:
     Type: String
-    Default: 'myapp'
-    AllowedPattern: '[a-z0-9]+'
-    MinLength: 1
-    MaxLength: 20
-    Description: >
-        Prefix that is used for the created resources (20 chars, a-z and 0-9 only)
-  NewKeyPrefix: 
-    Type: String
-    Default: 'new/'
+    Default: 'production/'
     AllowedPattern: '[A-Za-z0-9\-]+/'
     Description: >
         Prefix of new access log files that are written by Amazon CloudFront.
         Including the trailing slash.
-  GzKeyPrefix: 
+  GzKeyPrefix:
     Type: String
     Default: 'partitioned-gz/'
     AllowedPattern: '[A-Za-z0-9\-]+/'
     Description: >
         Prefix of gzip'ed access log files that are moved to the Apache Hive
         like style. Including the trailing slash.
-  ParquetKeyPrefix: 
+  ParquetKeyPrefix:
     Type: String
     Default: 'partitioned-parquet/'
     AllowedPattern: '[A-Za-z0-9\-]+/'
     Description: >
         Prefix of parquet files that are created in Apache Hive
         like style by the CTAS query. Including the trailing slash.
+  NameTableView:
+    Type: String
+    Default: 'combined'
+    AllowedPattern: '[A-Za-z0-9]+'
+    Description: >
+        Name of table view used to run SQL Queries
+        with real time data logs
 Resources:
-    TransformPartFn:
+    FzLambdaTransformPart:
         Type: AWS::Serverless::Function
         Properties:
+            FunctionName: fz-lambda-ovp-transform-part
             CodeUri: functions/
-            Handler: transformPartition.handler
+            Handler: index.transformPartitionHandler
             Runtime: nodejs14.x
+            MemorySize: 512
             Timeout: 900
             Policies:
             - Version: '2012-10-17'
@@ -59,12 +60,12 @@ Resources:
                   Action:
                     - s3:ListBucket
                     - s3:GetBucketLocation
-                  Resource: !Sub "arn:${AWS::Partition}:s3:::${ResourcePrefix}-${AWS::AccountId}-cf-access-logs"
+                  Resource: !Sub "arn:${AWS::Partition}:s3:::fz-ovp-cloudfront-logs"
                 - Effect: Allow
                   Action:
                     - s3:PutObject
                     - s3:GetObject
-                  Resource: !Sub "arn:${AWS::Partition}:s3:::${ResourcePrefix}-${AWS::AccountId}-cf-access-logs/*"
+                  Resource: !Sub "arn:${AWS::Partition}:s3:::fz-ovp-cloudfront-logs/*"
                 - Effect: Allow
                   Action:
                     - glue:CreatePartition
@@ -82,18 +83,20 @@ Resources:
                     SOURCE_TABLE: !Ref PartitionedGzTable
                     TARGET_TABLE: !Ref PartitionedParquetTable
                     DATABASE: !Ref CfLogsDatabase
-                    ATHENA_QUERY_RESULTS_LOCATION: !Sub "s3://${ResourcePrefix}-${AWS::AccountId}-cf-access-logs/athena-query-results"
+                    ATHENA_QUERY_RESULTS_LOCATION: !Sub "s3://fz-ovp-cloudfront-logs/athena-query-results"
             Events:
               HourlyEvt:
                 Type: Schedule
                 Properties:
                   Schedule: cron(1 * * * ? *)
-    CreatePartFn:
+    FzLambdaCreatePart:
         Type: AWS::Serverless::Function
         Properties:
+            FunctionName: fz-lambda-ovp-create-part
             CodeUri: functions/
-            Handler: createPartitions.handler
+            Handler: index.createPartitionsHandler
             Runtime: nodejs14.x
+            MemorySize: 512
             Timeout: 5
             Policies:
             - Version: '2012-10-17'
@@ -107,11 +110,11 @@ Resources:
                   Action:
                     - s3:ListBucket
                     - s3:GetBucketLocation
-                  Resource: !Sub "arn:${AWS::Partition}:s3:::${ResourcePrefix}-${AWS::AccountId}-cf-access-logs"
+                  Resource: !Sub "arn:${AWS::Partition}:s3:::fz-ovp-cloudfront-logs"
                 - Effect: Allow
                   Action:
                     - s3:PutObject
-                  Resource: !Sub "arn:${AWS::Partition}:s3:::${ResourcePrefix}-${AWS::AccountId}-cf-access-logs/*"
+                  Resource: !Sub "arn:${AWS::Partition}:s3:::fz-ovp-cloudfront-logs/*"
                 - Effect: Allow
                   Action:
                     - glue:CreatePartition
@@ -123,18 +126,20 @@ Resources:
                 Variables:
                     TABLE: !Ref PartitionedGzTable
                     DATABASE: !Ref CfLogsDatabase
-                    ATHENA_QUERY_RESULTS_LOCATION: !Sub "s3://${ResourcePrefix}-${AWS::AccountId}-cf-access-logs/athena-query-results"
+                    ATHENA_QUERY_RESULTS_LOCATION: !Sub "s3://fz-ovp-cloudfront-logs/athena-query-results"
             Events:
               HourlyEvt:
                 Type: Schedule
                 Properties:
                   Schedule: cron(55 * * * ? *)
-    MoveNewAccessLogsFn:
+    FzLambdaMoveNewAccessLogs:
         Type: AWS::Serverless::Function
         Properties:
+            FunctionName: fz-lambda-ovp-new-access-logs
             CodeUri: functions/
-            Handler: moveAccessLogs.handler
+            Handler: index.moveAccessLogsHandler
             Runtime: nodejs14.x
+            MemorySize: 512
             Timeout: 30
             Policies:
             - Version: '2012-10-17'
@@ -143,11 +148,11 @@ Resources:
                   Action:
                     - s3:GetObject
                     - s3:DeleteObject
-                  Resource: !Sub "arn:${AWS::Partition}:s3:::${ResourcePrefix}-${AWS::AccountId}-cf-access-logs/${NewKeyPrefix}*"
+                  Resource: !Sub "arn:${AWS::Partition}:s3:::fz-ovp-cloudfront-logs/${NewKeyPrefix}*"
                 - Effect: Allow
                   Action:
                     - s3:PutObject
-                  Resource: !Sub "arn:${AWS::Partition}:s3:::${ResourcePrefix}-${AWS::AccountId}-cf-access-logs/${GzKeyPrefix}*"
+                  Resource: !Sub "arn:${AWS::Partition}:s3:::fz-ovp-cloudfront-logs/${GzKeyPrefix}*"
             Environment:
                 Variables:
                     TARGET_KEY_PREFIX: !Ref GzKeyPrefix
@@ -155,24 +160,204 @@ Resources:
                 AccessLogsUploadedEvent:
                     Type: S3
                     Properties:
-                        Bucket: !Ref CloudFrontAccessLogsBucket 
+                        Bucket: !Ref CloudFrontAccessLogsBucket
                         Events: s3:ObjectCreated:*
                         Filter:
                             S3Key:
                                 Rules:
                                 - Name: prefix
                                   Value: !Ref NewKeyPrefix
+    FzLambdaMonitoringReferrerHeaderUnknown:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: fz-lambda-ovp-monitoring-referrer-unknown
+            CodeUri: functions/
+            Handler: index.referrerHeaderUnknownHandler
+            Runtime: nodejs14.x
+            MemorySize: 512
+            Timeout: 30
+            Policies:
+            - Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:PutObject
+                    - s3:GetObject
+                    - athena:StartQueryExecution
+                    - glue:GetPartitions
+                    - athena:GetQueryExecution
+                    - athena:GetQueryResults
+                    - s3:ListBucket
+                    - glue:GetTable
+                  Resource:
+                  - "arn:aws:s3:::fz-ovp-cloudfront-logs"
+                  - "arn:aws:s3:::fz-ovp-cloudfront-logs/*"
+                  - "arn:aws:glue:us-east-1:829011433133:catalog"
+                  - "arn:aws:glue:us-east-1:829011433133:database/fz-ovp-cloudfront-logs-db"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/combined"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/partitioned_gz"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/partitioned_parquet"
+                  - "arn:aws:athena:us-east-1:829011433133:workgroup/primary"
+            Environment:
+                Variables:
+                    DATABASE: !Ref CfLogsDatabase
+                    NAME_TABLE_VIEW: !Ref NameTableView
+                    SLACK_WEBHOOK_URL: "https://slack-webhook.nunchee.tv"
+                    ATHENA_QUERY_RESULTS_LOCATION: !Sub "s3://fz-ovp-cloudfront-logs/athena-query-results"
+                    WAF_REFERRER_BLOCK_LIST: "https://us-east-1.console.aws.amazon.com/wafv2/homev2/rule-group/rule/fz-ovp-general-rule-group/4da3f52a-fd7a-4f04-8259-70f4fa13a029/fz-manual-block-referer-unknown?region=global"
+            Events:
+              EveryDay:
+                Type: Schedule
+                Properties:
+                  Schedule: cron(30 14 * * ? *)
+    FzLambdaMonitoringUserAgentHeaderUnknown:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: fz-lambda-ovp-monitoring-user-agent-unknown
+            CodeUri: functions/
+            Handler: index.userAgentHeaderUnknown
+            Runtime: nodejs14.x
+            MemorySize: 512
+            Timeout: 30
+            Policies:
+            - Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:PutObject
+                    - s3:GetObject
+                    - athena:StartQueryExecution
+                    - glue:GetPartitions
+                    - athena:GetQueryExecution
+                    - athena:GetQueryResults
+                    - s3:ListBucket
+                    - glue:GetTable
+                  Resource:
+                  - "arn:aws:s3:::fz-ovp-cloudfront-logs"
+                  - "arn:aws:s3:::fz-ovp-cloudfront-logs/*"
+                  - "arn:aws:glue:us-east-1:829011433133:catalog"
+                  - "arn:aws:glue:us-east-1:829011433133:database/fz-ovp-cloudfront-logs-db"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/combined"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/partitioned_gz"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/partitioned_parquet"
+                  - "arn:aws:athena:us-east-1:829011433133:workgroup/primary"
+            Environment:
+                Variables:
+                    DATABASE: !Ref CfLogsDatabase
+                    NAME_TABLE_VIEW: !Ref NameTableView
+                    SLACK_WEBHOOK_URL: "https://slack-webhook.nunchee.tv"
+                    ATHENA_QUERY_RESULTS_LOCATION: !Sub "s3://fz-ovp-cloudfront-logs/athena-query-results"
+                    WAF_UA_BLOCK_LIST: "https://us-east-1.console.aws.amazon.com/wafv2/homev2/rule-group/rule/fz-ovp-general-rule-group/4da3f52a-fd7a-4f04-8259-70f4fa13a029/fz-manual-block-user-agent-unknown?region=global"
+            Events:
+              EveryDay:
+                Type: Schedule
+                Properties:
+                  Schedule: cron(30 14 * * ? *)
+    FzLambdaMonitoringTopUsageByIp:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: fz-lambda-ovp-monitoring-top-usage-ip
+            CodeUri: functions/
+            Handler: index.topUsageByIpHandler
+            Runtime: nodejs14.x
+            MemorySize: 512
+            Timeout: 30
+            Policies:
+            - Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:PutObject
+                    - s3:GetObject
+                    - athena:StartQueryExecution
+                    - glue:GetPartitions
+                    - athena:GetQueryExecution
+                    - athena:GetQueryResults
+                    - s3:ListBucket
+                    - glue:GetTable
+                  Resource:
+                  - "arn:aws:s3:::fz-ovp-cloudfront-logs"
+                  - "arn:aws:s3:::fz-ovp-cloudfront-logs/*"
+                  - "arn:aws:glue:us-east-1:829011433133:catalog"
+                  - "arn:aws:glue:us-east-1:829011433133:database/fz-ovp-cloudfront-logs-db"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/combined"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/partitioned_gz"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/partitioned_parquet"
+                  - "arn:aws:athena:us-east-1:829011433133:workgroup/primary"
+            Environment:
+                Variables:
+                    DATABASE: !Ref CfLogsDatabase
+                    NAME_TABLE_VIEW: !Ref NameTableView
+                    SLACK_WEBHOOK_URL: "https://slack-webhook.nunchee.tv"
+                    ATHENA_QUERY_RESULTS_LOCATION: !Sub "s3://fz-ovp-cloudfront-logs/athena-query-results"
+                    WAF_IP_LIST: "https://us-east-1.console.aws.amazon.com/wafv2/homev2/ip-set/fz-sports-ovp-blacklist-ipv4-set/f1ce0ca9-188a-4b21-b564-75a4d722b598?region=global"
+            Events:
+              EveryDay:
+                Type: Schedule
+                Properties:
+                  Schedule: cron(30 14 * * ? *)
+    FzLambdaMonitoringTopUsageByUserId:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: fz-lambda-ovp-monitoring-top-usage-userId
+            CodeUri: functions/
+            Handler: index.topUsageByUserId
+            Runtime: nodejs14.x
+            MemorySize: 512
+            Timeout: 30
+            Policies:
+            - Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:PutObject
+                    - s3:GetObject
+                    - athena:StartQueryExecution
+                    - glue:GetPartitions
+                    - athena:GetQueryExecution
+                    - athena:GetQueryResults
+                    - s3:ListBucket
+                    - glue:GetTable
+                  Resource:
+                  - "arn:aws:s3:::fz-ovp-cloudfront-logs"
+                  - "arn:aws:s3:::fz-ovp-cloudfront-logs/*"
+                  - "arn:aws:glue:us-east-1:829011433133:catalog"
+                  - "arn:aws:glue:us-east-1:829011433133:database/fz-ovp-cloudfront-logs-db"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/combined"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/partitioned_gz"
+                  - "arn:aws:glue:us-east-1:829011433133:table/fz-ovp-cloudfront-logs-db/partitioned_parquet"
+                  - "arn:aws:athena:us-east-1:829011433133:workgroup/primary"
+            Environment:
+                Variables:
+                    DATABASE: !Ref CfLogsDatabase
+                    NAME_TABLE_VIEW: !Ref NameTableView
+                    SLACK_WEBHOOK_URL: "https://slack-webhook.nunchee.tv"
+                    ATHENA_QUERY_RESULTS_LOCATION: !Sub "s3://fz-ovp-cloudfront-logs/athena-query-results"
+                    WAF_IP_LIST: "https://us-east-1.console.aws.amazon.com/wafv2/homev2/ip-set/fz-sports-ovp-blacklist-ipv4-set/f1ce0ca9-188a-4b21-b564-75a4d722b598?region=global"
+            Events:
+              EveryDay:
+                Type: Schedule
+                Properties:
+                  Schedule: cron(30 14 * * ? *)
     CloudFrontAccessLogsBucket:
         Type: "AWS::S3::Bucket"
         Description: "Bucket for Amazon CloudFront access logs"
         Properties:
-            BucketName: !Sub "${ResourcePrefix}-${AWS::AccountId}-cf-access-logs"
+            BucketName: !Sub "fz-ovp-cloudfront-logs"
             LifecycleConfiguration:
               Rules:
                 - Id: ExpireAthenaQueryResults
                   Prefix: athena-query-results/
                   Status: Enabled
                   ExpirationInDays: 1
+                - Id: ExpireCloudfrontLogsPartitionedParquet
+                  Prefix: partitioned-parquet/
+                  Status: Enabled
+                  ExpirationInDays: 30
+                - Id: ExpireCloudfrontLogsPartitionedGz
+                  Prefix: partitioned-gz/
+                  Status: Enabled
+                  ExpirationInDays: 30
             BucketEncryption:
               ServerSideEncryptionConfiguration:
               - ServerSideEncryptionByDefault:
@@ -210,7 +395,7 @@ Resources:
         Properties:
           CatalogId: !Ref AWS::AccountId
           DatabaseInput:
-            Name: !Sub "${ResourcePrefix}_cf_access_logs_db"
+            Name: !Sub "fz-ovp-cloudfront-logs-db"
     PartitionedGzTable:
       Type: AWS::Glue::Table
       Properties:
@@ -300,7 +485,7 @@ Resources:
             - Name: sc_range_end
               Type: bigint
             InputFormat: org.apache.hadoop.mapred.TextInputFormat
-            Location: !Sub "s3://${ResourcePrefix}-${AWS::AccountId}-cf-access-logs/${GzKeyPrefix}"
+            Location: !Sub "s3://fz-ovp-cloudfront-logs/${GzKeyPrefix}"
             SerdeInfo:
               Parameters:
                 field.delim": "\t"
@@ -395,7 +580,7 @@ Resources:
             - Name: sc_range_end
               Type: bigint
             InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
-            Location: !Sub "s3://${ResourcePrefix}-${AWS::AccountId}-cf-access-logs/${ParquetKeyPrefix}"
+            Location: !Sub "s3://fz-ovp-cloudfront-logs/${ParquetKeyPrefix}"
             SerdeInfo:
               SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
     CombinedView:
@@ -404,7 +589,7 @@ Resources:
         CatalogId: !Ref AWS::AccountId
         DatabaseName: !Ref CfLogsDatabase
         TableInput:
-          Name: 'combined'
+          Name: !Ref NameTableView
           Description: 'combined view over gzip and parquet tables'
           TableType: VIRTUAL_VIEW
           Parameters: { 'presto_view': 'true' }
@@ -494,7 +679,7 @@ Resources:
             - - '/* Presto View: '
               - Fn::Base64:
                   Fn::Sub:
-                  - |- 
+                  - |-
                     {
                       "originalSql": "SELECT *, \"$path\" as file FROM ${database}.${partitioned_gz_table} WHERE (concat(year, month, day, hour) >= date_format(date_trunc('hour', ((current_timestamp - INTERVAL  '15' MINUTE) - INTERVAL  '1' HOUR)), '%Y%m%d%H')) UNION ALL SELECT *, \"$path\" as file FROM ${database}.${partitioned_parquet_table} WHERE (concat(year, month, day, hour) < date_format(date_trunc('hour', ((current_timestamp - INTERVAL  '15' MINUTE) - INTERVAL  '1' HOUR)), '%Y%m%d%H'))",
                       "catalog": "awsdatacatalog",

@@ -2,3 +2,6 @@ packaged.yaml
 .DS_Store
 samconfig.toml
 packaged*.yaml
+node_modules
+yarn-error.log
+yarn.lock
