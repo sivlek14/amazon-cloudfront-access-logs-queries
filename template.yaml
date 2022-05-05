@@ -215,7 +215,7 @@ Resources:
         Properties:
             FunctionName: fz-lambda-ovp-monitoring-user-agent-unknown
             CodeUri: functions/
-            Handler: index.userAgentHeaderUnknown
+            Handler: index.userAgentHeaderUnknownHandler
             Runtime: nodejs14.x
             MemorySize: 512
             Timeout: 30
@@ -301,7 +301,7 @@ Resources:
         Properties:
             FunctionName: fz-lambda-ovp-monitoring-top-usage-userId
             CodeUri: functions/
-            Handler: index.topUsageByUserId
+            Handler: index.topUsageByUserIdHandler
             Runtime: nodejs14.x
             MemorySize: 512
             Timeout: 30
