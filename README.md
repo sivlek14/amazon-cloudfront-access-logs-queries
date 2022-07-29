@@ -1,4 +1,9 @@
-# Analyzing your Amazon CloudFront access logs at scale
+# FZ Implementation
+- Fixed function to get yesterday date
+- Added utility function to get yesterday date
+- Reduce lambda memory size
+
+# ORIGINAL ENTRY: Analyzing your Amazon CloudFront access logs at scale
 
 This is a sample implementation for the concepts described in the AWS blog post [_Analyze your Amazon CloudFront access logs at scale_](https://aws.amazon.com/blogs/big-data/analyze-your-amazon-cloudfront-access-logs-at-scale/) using
 [AWS CloudFormation](https://aws.amazon.com/cloudformation/),

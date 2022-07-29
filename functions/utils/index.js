@@ -21,3 +21,19 @@ export const streamToString = stream =>
         stream.on('error', reject);
         stream.on('end', () => resolve(chunks.join('')));
     });
+
+export const getPreviousDay = (date = new Date()) => {
+    const previous = new Date(date.getTime());
+    previous.setDate(date.getDate() - 1);
+
+    return previous;
+}
+
+export const getQueryFormattedDate = () => {
+    const previousDate = getPreviousDay();
+    const year = previousDate.getUTCFullYear();
+    const month = (previousDate.getUTCMonth() + 1).toString().padStart(2, '0');
+    const day = previousDate.getUTCDate().toString().padStart(2, '0');
+
+    return { year, month, day };
+};

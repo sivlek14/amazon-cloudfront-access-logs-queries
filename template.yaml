@@ -46,7 +46,7 @@ Resources:
             CodeUri: functions/
             Handler: index.transformPartitionHandler
             Runtime: nodejs14.x
-            MemorySize: 512
+            MemorySize: 128
             Timeout: 900
             Policies:
             - Version: '2012-10-17'
@@ -96,7 +96,7 @@ Resources:
             CodeUri: functions/
             Handler: index.createPartitionsHandler
             Runtime: nodejs14.x
-            MemorySize: 512
+            MemorySize: 128
             Timeout: 5
             Policies:
             - Version: '2012-10-17'
@@ -139,7 +139,7 @@ Resources:
             CodeUri: functions/
             Handler: index.moveAccessLogsHandler
             Runtime: nodejs14.x
-            MemorySize: 512
+            MemorySize: 128
             Timeout: 30
             Policies:
             - Version: '2012-10-17'
@@ -174,7 +174,7 @@ Resources:
             CodeUri: functions/
             Handler: index.referrerHeaderUnknownHandler
             Runtime: nodejs14.x
-            MemorySize: 512
+            MemorySize: 128
             Timeout: 30
             Policies:
             - Version: '2012-10-17'
@@ -217,7 +217,7 @@ Resources:
             CodeUri: functions/
             Handler: index.userAgentHeaderUnknownHandler
             Runtime: nodejs14.x
-            MemorySize: 512
+            MemorySize: 128
             Timeout: 30
             Policies:
             - Version: '2012-10-17'
@@ -260,7 +260,7 @@ Resources:
             CodeUri: functions/
             Handler: index.topUsageByIpHandler
             Runtime: nodejs14.x
-            MemorySize: 512
+            MemorySize: 128
             Timeout: 30
             Policies:
             - Version: '2012-10-17'
@@ -303,7 +303,7 @@ Resources:
             CodeUri: functions/
             Handler: index.topUsageByUserIdHandler
             Runtime: nodejs14.x
-            MemorySize: 512
+            MemorySize: 128
             Timeout: 30
             Policies:
             - Version: '2012-10-17'

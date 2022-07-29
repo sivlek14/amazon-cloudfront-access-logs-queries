@@ -1,5 +1,5 @@
 import { runQuery } from '../utils/athena.js';
-import { formatRecords } from '../utils/index.js';
+import { formatRecords, getQueryFormattedDate } from '../utils/index.js';
 import { getQueryResultFromS3Location } from '../utils/s3.js';
 import { sendMessageToOVPChannelSecurityAlerts } from '../utils/slack.js';
 
@@ -7,10 +7,7 @@ const { DATABASE, NAME_TABLE_VIEW, WAF_IP_LIST } = process.env;
 
 export const handler = async () => {
     try {
-        const currentDate = new Date();
-        const year = currentDate.getUTCFullYear();
-        const month = (currentDate.getUTCMonth() + 1).toString().padStart(2, '0');
-        const day = (currentDate.getUTCDate() - 1).toString().padStart(2, '0');
+        const { year, month, day } = getQueryFormattedDate();
         const ctasStatement = `
             SELECT
                 COUNT(request_ip) as countRequest,

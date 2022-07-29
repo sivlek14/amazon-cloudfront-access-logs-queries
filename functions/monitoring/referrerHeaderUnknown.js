@@ -1,6 +1,6 @@
 
 import { runQuery } from '../utils/athena.js';
-import { formattedRecords } from '../utils/index.js';
+import { formattedRecords, getQueryFormattedDate } from '../utils/index.js';
 import { getQueryResultFromS3Location } from '../utils/s3.js';
 import { sendMessageToOVPChannelSecurityAlerts } from '../utils/slack.js';
 
@@ -8,10 +8,7 @@ const { DATABASE, NAME_TABLE_VIEW, WAF_REFERRER_BLOCK_LIST } = process.env;
 
 export const handler = async () => {
     try {
-        const currentDate = new Date();
-        const year = currentDate.getUTCFullYear();
-        const month = (currentDate.getUTCMonth() + 1).toString().padStart(2, '0');
-        const day = (currentDate.getUTCDate() - 1).toString().padStart(2, '0');
+        const { year, month, day } = getQueryFormattedDate();
         const ctasStatement = `
             SELECT
                 COUNT(referrer) as count_referrer, url_decode(referrer)
