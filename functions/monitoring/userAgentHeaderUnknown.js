@@ -1,14 +1,23 @@
 import UAParser from 'ua-parser-js';
 import { getQueryResultFromS3Location } from '../utils/s3.js';
-import { formattedRecords, getQueryFormattedDate } from '../utils/index.js';
+import { formattedRecords, yesterdayFormattedDate, getQueryFormattedDate } from '../utils/index.js';
 import { runQuery } from '../utils/athena.js';
 import { sendMessageToOVPChannelSecurityAlerts } from '../utils/slack.js';
 
 const { DATABASE, NAME_TABLE_VIEW, WAF_UA_BLOCK_LIST } = process.env;
 
-export const handler = async () => {
+export const handler = async event => {
+    let year, month, day;
+
+    if (event?.fromDate) {
+        const dateFromEvent = new Date(event?.fromDate);
+
+        ({ year, month, day } = getQueryFormattedDate(dateFromEvent));
+    } else {
+        ({ year, month, day } = yesterdayFormattedDate());
+    }
+
     try {
-        const { year, month, day } = getQueryFormattedDate();
         const ctasStatement = `
             SELECT
                 COUNT(user_agent) as count_user_agent, url_decode(user_agent)
@@ -46,7 +55,7 @@ export const handler = async () => {
 
 
         const slackBodyMessage = {
-            text: `Unknown UserAgent yesterday ${year}-${month}-${day}`,
+            text: `Unknown UserAgent ${year}-${month}-${day}`,
             attachments: [
                 {
                     text: `Please, check each UserAgent listed and block if necessary in <${WAF_UA_BLOCK_LIST}|WAF rule> after review and detect bad behavior`,

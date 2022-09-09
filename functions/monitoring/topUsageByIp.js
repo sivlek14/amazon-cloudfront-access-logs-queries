@@ -1,14 +1,23 @@
 
 import { runQuery } from '../utils/athena.js';
-import { formattedRecords, getQueryFormattedDate } from '../utils/index.js';
+import { formattedRecords, yesterdayFormattedDate, getQueryFormattedDate } from '../utils/index.js';
 import { getQueryResultFromS3Location } from '../utils/s3.js';
 import { sendMessageToOVPChannelSecurityAlerts } from '../utils/slack.js';
 
 const { DATABASE, NAME_TABLE_VIEW, WAF_IP_LIST } = process.env;
 
-export const handler = async () => {
+export const handler = async event => {
+    let year, month, day;
+
+    if (event?.fromDate) {
+        const dateFromEvent = new Date(event?.fromDate);
+
+        ({ year, month, day } = getQueryFormattedDate(dateFromEvent));
+    } else {
+        ({ year, month, day } = yesterdayFormattedDate());
+    }
+
     try {
-        const { year, month, day } = getQueryFormattedDate();
         const ctasStatement = `
             SELECT
                 SUM("bytes")/1000000000.00 as sumGB,
@@ -48,7 +57,7 @@ export const handler = async () => {
 
 
         const slackBodyMessage = {
-            text: `Top 10 Consumer IP Address yesterday ${year}-${month}-${day}`,
+            text: `Top 10 Consumer IP Address from ${year}-${month}-${day}`,
             attachments: [
                 {
                     text: `AVG consumed is *${avgResRecordsGB.toFixed(2)} GB*`,

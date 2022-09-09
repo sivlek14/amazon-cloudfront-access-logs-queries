@@ -1,13 +1,22 @@
 import { runQuery } from '../utils/athena.js';
-import { formatRecords, getQueryFormattedDate } from '../utils/index.js';
+import { formatRecords, yesterdayFormattedDate, getQueryFormattedDate } from '../utils/index.js';
 import { getQueryResultFromS3Location } from '../utils/s3.js';
 import { sendMessageToOVPChannelSecurityAlerts } from '../utils/slack.js';
 
 const { DATABASE, NAME_TABLE_VIEW, WAF_IP_LIST } = process.env;
 
-export const handler = async () => {
+export const handler = async event => {
+    let year, month, day;
+
+    if (event?.fromDate) {
+        const dateFromEvent = new Date(event?.fromDate);
+
+        ({ year, month, day } = getQueryFormattedDate(dateFromEvent));
+    } else {
+        ({ year, month, day } = yesterdayFormattedDate());
+    }
+
     try {
-        const { year, month, day } = getQueryFormattedDate();
         const ctasStatement = `
             SELECT
                 COUNT(request_ip) as countRequest,
@@ -58,7 +67,7 @@ export const handler = async () => {
 
 
         const slackBodyMessage = {
-            text: `Top 10 Consumer Users yesterday ${year}-${month}-${day}`,
+            text: `Top 10 Consumer Users ${year}-${month}-${day}`,
             attachments: [
                 {
                     text: `AVG Request is *${avgResRecordsCount}*`,

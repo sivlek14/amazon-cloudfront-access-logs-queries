@@ -1,4 +1,5 @@
 # FZ Implementation
+- Added functionality to get date from event directly in all lambda function
 - Fixed function to get yesterday date
 - Added utility function to get yesterday date
 - Reduce lambda memory size

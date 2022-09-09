@@ -1,14 +1,23 @@
 
 import { runQuery } from '../utils/athena.js';
-import { formattedRecords, getQueryFormattedDate } from '../utils/index.js';
+import { formattedRecords, yesterdayFormattedDate, getQueryFormattedDate } from '../utils/index.js';
 import { getQueryResultFromS3Location } from '../utils/s3.js';
 import { sendMessageToOVPChannelSecurityAlerts } from '../utils/slack.js';
 
 const { DATABASE, NAME_TABLE_VIEW, WAF_REFERRER_BLOCK_LIST } = process.env;
 
-export const handler = async () => {
+export const handler = async event => {
+    let year, month, day;
+
+    if (event?.fromDate) {
+        const dateFromEvent = new Date(event?.fromDate);
+
+        ({ year, month, day } = getQueryFormattedDate(dateFromEvent));
+    } else {
+        ({ year, month, day } = yesterdayFormattedDate());
+    }
+
     try {
-        const { year, month, day } = getQueryFormattedDate();
         const ctasStatement = `
             SELECT
                 COUNT(referrer) as count_referrer, url_decode(referrer)
@@ -47,7 +56,7 @@ export const handler = async () => {
         }
 
         const slackBodyMessage = {
-            text: `Unknown Referrer yesterday ${year}-${month}-${day}`,
+            text: `Unknown Referrer ${year}-${month}-${day}`,
             attachments: [
                 {
                     text: `Please, check each Referrer listed and block if necessary in <${WAF_REFERRER_BLOCK_LIST}|WAF rule> after review and detect bad behavior`,
