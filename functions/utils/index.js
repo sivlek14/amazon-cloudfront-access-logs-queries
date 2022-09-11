@@ -21,7 +21,7 @@ export const streamToString = stream =>
         stream.on('end', () => resolve(chunks.join('')));
     });
 
-export const getPreviousDayFromDate = () => {
+export const getPreviousDayFromDate = date => {
     const previous = new Date(date.getTime());
 
     previous.setDate(date.getDate() - 1);
