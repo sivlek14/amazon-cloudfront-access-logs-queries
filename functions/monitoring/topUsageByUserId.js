@@ -20,7 +20,9 @@ export const handler = async event => {
         const ctasStatement = `
             SELECT
                 COUNT(request_ip) as countRequest,
-                SPLIT_PART(from_utf8(from_base64(url_decode(SPLIT_PART(SPLIT_PART(query_string, '&', 2), '=', 2)))), '/',1) as userId, array_join(array_agg(DISTINCT request_ip),','), array_join(array_agg(DISTINCT host_header),',')
+                SPLIT_PART(from_utf8(from_base64(url_decode(SPLIT_PART(SPLIT_PART(query_string, '&', 2), '=', 2)))), '/', 1) as userId,
+                array_join(array_agg(DISTINCT request_ip), ','),
+                array_join(array_agg(DISTINCT host_header), ',')
             FROM
                 "${DATABASE}"."${NAME_TABLE_VIEW}"
             WHERE
@@ -28,12 +30,12 @@ export const handler = async event => {
                 AND month = '${month}'
                 AND day = '${day}'
                 AND uri like '%.m3u8'
-                AND try(from_base64(url_decode(SPLIT_PART(SPLIT_PART(query_string, '&', 2), '=', 2)))) is not null
+                AND try(LENGTH(SPLIT_PART(from_utf8(from_base64(url_decode(SPLIT_PART(SPLIT_PART(query_string, '&', 2), '=', 2)))), '/', 1))) = 26
                 AND status < 400
             GROUP BY
-                SPLIT_PART(from_utf8(from_base64(url_decode(SPLIT_PART(SPLIT_PART(query_string, '&', 2), '=', 2)))), '/', 1)
+                2
             ORDER BY
-                countRequest DESC
+                1 DESC
             LIMIT 100;
         `;
 

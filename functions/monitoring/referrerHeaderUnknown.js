@@ -43,8 +43,22 @@ export const handler = async event => {
             color: '#FF3200',
         };
 
+        const allowedDomains = [
+            'fanatiz.com',
+            'brasileiraoplay.com',
+            'afaplay.com',
+            'gstatic.com',
+            'apple.com',
+            'nunchee.tv',
+            'nunchee.com',
+            'cdomas.cl',
+            'atafootball.com'
+          ];
+
+        const regExpAllowedDomains = new RegExp(allowedDomains.join('|'));
+
         formattedAllRecords.forEach(([ _, referrer ]) => {
-            if (!/(fanatiz.com|brasileiraoplay.com|afaplay.com|gstatic.com|apple.com|nunchee.tv|nunchee.com)/.test(referrer)) {
+            if (!regExpAllowedDomains.test(referrer)) {
                 unknownReferrerListAttachment.text += `*Referrer:* ${referrer}\n`;
 
             }

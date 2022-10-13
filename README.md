@@ -3,6 +3,8 @@
 - Fixed function to get yesterday date
 - Added utility function to get yesterday date
 - Reduce lambda memory size
+- Added allowedDomains list to include cdo and ata football domains
+- Avoid invalid alert Resource from topUsageByUserId adding userId len validation
 
 # ORIGINAL ENTRY: Analyzing your Amazon CloudFront access logs at scale
 
