@@ -52,7 +52,8 @@ export const handler = async event => {
             'nunchee.tv',
             'nunchee.com',
             'cdomas.cl',
-            'atafootball.com'
+            'atafootball.com',
+            'bblplayer.co.uk',
           ];
 
         const regExpAllowedDomains = new RegExp(allowedDomains.join('|'));
