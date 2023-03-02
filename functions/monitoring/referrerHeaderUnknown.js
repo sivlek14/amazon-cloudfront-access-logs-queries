@@ -54,6 +54,7 @@ export const handler = async event => {
             'cdomas.cl',
             'atafootball.com',
             'bblplayer.co.uk',
+            'liga1play.com',
           ];
 
         const regExpAllowedDomains = new RegExp(allowedDomains.join('|'));

@@ -5,6 +5,7 @@
 - Reduce lambda memory size
 - Added allowedDomains list to include cdo and ata football domains
 - Avoid invalid alert Resource from topUsageByUserId adding userId len validation
+- Added allowedDomains list to include liga1play domain
 
 # ORIGINAL ENTRY: Analyzing your Amazon CloudFront access logs at scale
 
